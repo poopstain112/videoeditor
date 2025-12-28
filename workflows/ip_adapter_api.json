@@ -1,0 +1,111 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoadFluxIPAdapter",
+    "inputs": {
+      "ipadatper": "flux-ip-adapter.safetensors",
+      "clip_vision": "clip-vit-large-patch14.safetensors",
+      "provider": "GPU"
+    }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "example.png"
+    }
+  },
+  "6": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": ["5", 0],
+      "upscale_method": "nearest-exact",
+      "width": 1024,
+      "height": 1024,
+      "crop": "disabled"
+    }
+  },
+  "7": {
+    "class_type": "ApplyFluxIPAdapter",
+    "inputs": {
+      "model": ["1", 0],
+      "ip_adapter_flux": ["4", 0],
+      "image": ["6", 0],
+      "ip_scale": 0.85
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["2", 0],
+      "clip_l": "A warrior standing in a mystical forest, cinematic lighting, detailed armor, epic fantasy scene",
+      "t5xxl": "A warrior standing in a mystical forest, cinematic lighting, detailed armor, epic fantasy scene",
+      "guidance": 4
+    }
+  },
+  "9": {
+    "class_type": "CLIPTextEncodeFlux",
+    "inputs": {
+      "clip": ["2", 0],
+      "clip_l": "",
+      "t5xxl": "",
+      "guidance": 4
+    }
+  },
+  "10": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "11": {
+    "class_type": "XlabsSampler",
+    "inputs": {
+      "model": ["7", 0],
+      "conditioning": ["8", 0],
+      "neg_conditioning": ["9", 0],
+      "latent_image": ["10", 0],
+      "seed": 42,
+      "seed_type": "fixed",
+      "steps": 30,
+      "timestep_to_start_cfg": 1,
+      "true_gs": 3.5,
+      "image_to_image_strength": 0
+    }
+  },
+  "12": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["11", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "13": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["12", 0],
+      "filename_prefix": "IPAdapter_test"
+    }
+  }
+}
