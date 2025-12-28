@@ -1,0 +1,32 @@
+# Generated content
+projects/*/scenes/
+projects/*/audio/
+projects/*/exports/
+outputs/
+
+# Large files
+*.mp4
+*.mov
+*.avi
+*.wav
+*.mp3
+*.flac
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+
+# Keep structure
+!projects/.gitkeep
+!projects/*/references/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+.venv/
