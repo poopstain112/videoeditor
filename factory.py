@@ -1,4 +1,4 @@
-﻿"""
+"""
 VIDEO FACTORY - Claude's Pipeline
 One script. Images, Videos, Audio. Done.
 """
@@ -6,12 +6,11 @@ import json
 import time
 import requests
 import random
-from pathlib import Path
 
 COMFY = "http://localhost:8188"
 
 def queue(workflow):
-    """Queue workflow, wait for completion, return output path."""
+    """Queue workflow, wait for completion, return output."""
     r = requests.post(f"{COMFY}/prompt", json={"prompt": workflow}, timeout=10)
     if r.status_code != 200:
         raise Exception(f"Queue failed: {r.text[:200]}")
@@ -19,8 +18,7 @@ def queue(workflow):
     prompt_id = r.json()['prompt_id']
     print(f"  Queued: {prompt_id[:8]}...", end="", flush=True)
     
-    # Wait for completion
-    for i in range(120):  # 10 min max
+    for i in range(120):
         time.sleep(5)
         hist = requests.get(f"{COMFY}/history/{prompt_id}").json()
         if prompt_id in hist:
@@ -37,13 +35,10 @@ def queue(workflow):
         print(".", end="", flush=True)
     raise Exception("Timeout")
 
-# ============ WORKFLOWS ============
-
 def text_to_video(prompt, seed=None, frames=65, width=768, height=512):
-    """Generate video from text prompt."""
+    """Generate video from text prompt. TESTED WORKING."""
     seed = seed or random.randint(0, 2**32)
-    print(f"[TEXTâ†’VIDEO] {prompt[:50]}...")
-    
+    print(f"[TEXT->VIDEO] {prompt[:50]}...")
     workflow = {
         "1": {"inputs": {"clip_name": "t5xxl_fp16.safetensors", "type": "ltxv"}, "class_type": "CLIPLoader"},
         "2": {"inputs": {"ckpt_name": "ltxv-13b-0.9.8-distilled-fp8.safetensors"}, "class_type": "CheckpointLoaderSimple"},
@@ -64,10 +59,9 @@ def text_to_video(prompt, seed=None, frames=65, width=768, height=512):
     return queue(workflow)
 
 def image_to_video(image_path, prompt, seed=None, frames=65):
-    """Generate video from image + prompt."""
+    """Generate video from image + prompt. TESTED WORKING."""
     seed = seed or random.randint(0, 2**32)
-    print(f"[IMAGEâ†’VIDEO] {image_path} | {prompt[:30]}...")
-    
+    print(f"[IMAGE->VIDEO] {image_path} | {prompt[:30]}...")
     workflow = {
         "1": {"inputs": {"clip_name": "t5xxl_fp16.safetensors", "type": "ltxv"}, "class_type": "CLIPLoader"},
         "2": {"inputs": {"ckpt_name": "ltxv-13b-0.9.8-distilled-fp8.safetensors"}, "class_type": "CheckpointLoaderSimple"},
@@ -89,10 +83,9 @@ def image_to_video(image_path, prompt, seed=None, frames=65):
     return queue(workflow)
 
 def text_to_image(prompt, seed=None, width=1024, height=576):
-    """Generate image from text using Flux."""
+    """Generate image from text using Flux. TESTED WORKING."""
     seed = seed or random.randint(0, 2**32)
-    print(f"[TEXTâ†’IMAGE] {prompt[:50]}...")
-    
+    print(f"[TEXT->IMAGE] {prompt[:50]}...")
     workflow = {
         "1": {"inputs": {"unet_name": "flux1-dev-kontext_fp8_scaled.safetensors", "weight_dtype": "default"}, "class_type": "UNETLoader"},
         "2": {"inputs": {"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp16.safetensors", "type": "flux"}, "class_type": "DualCLIPLoader"},
@@ -106,28 +99,37 @@ def text_to_image(prompt, seed=None, width=1024, height=576):
     }
     return queue(workflow)
 
-def video_to_audio(video_frames_or_path, prompt, duration=8, seed=None):
-    """Generate audio for video using MMAudio."""
+def text_to_audio(prompt, duration=8, seed=None):
+    """Generate audio from text prompt using MMAudio."""
     seed = seed or random.randint(0, 2**32)
-    print(f"[VIDEOâ†’AUDIO] {prompt[:50]}...")
-    
+    print(f"[TEXT->AUDIO] {prompt[:50]}...")
     workflow = {
-        "1": {"inputs": {"mmaudio_model": "mmaudio_large_44k_v2_fp16.safetensors"}, "class_type": "MMAudioModelLoader"},
-        "2": {"inputs": {}, "class_type": "MMAudioFeatureUtilsLoader"},
+        "1": {"inputs": {"mmaudio_model": "mmaudio_large_44k_v2_fp16.safetensors", "base_precision": "fp16"}, "class_type": "MMAudioModelLoader"},
+        "2": {"inputs": {"vae_model": "mmaudio_vae_44k_fp16.safetensors", "synchformer_model": "mmaudio_synchformer_fp16.safetensors", "clip_model": "apple_DFN5B-CLIP-ViT-H-14-384_fp16.safetensors", "mode": "44k", "precision": "fp16"}, "class_type": "MMAudioFeatureUtilsLoader"},
         "3": {"inputs": {"mmaudio_model": ["1", 0], "feature_utils": ["2", 0], "duration": duration, "steps": 25, "cfg": 4.5, "seed": seed, "prompt": prompt, "negative_prompt": "noise, static, distortion", "mask_away_clip": False, "force_offload": True}, "class_type": "MMAudioSampler"},
         "4": {"inputs": {"audio": ["3", 0], "filename_prefix": f"audio_{seed}"}, "class_type": "SaveAudio"}
     }
     return queue(workflow)
 
-
-# ============ MAIN ============
-
 if __name__ == "__main__":
     print("=" * 50)
-    print("VIDEO FACTORY TEST")
+    print("VIDEO FACTORY - FULL TEST")
     print("=" * 50)
     
-    # Test text-to-video
-    result = text_to_video("A boat sailing on calm ocean water, golden sunset, cinematic", seed=42)
-    print(f"Output: {result}")
+    # Test all functions
+    print("\n1. Text to Video...")
+    text_to_video("A boat sailing on calm ocean water", seed=1)
+    
+    print("\n2. Image to Video...")
+    image_to_video("20230314_143634.jpg", "boat gliding on water", seed=2)
+    
+    print("\n3. Text to Image...")
+    text_to_image("A luxury yacht at sunset", seed=3)
+    
+    print("\n4. Text to Audio...")
+    text_to_audio("ocean waves, seagulls", duration=5, seed=4)
+    
+    print("\n" + "=" * 50)
+    print("ALL TESTS COMPLETE")
+    print("=" * 50)
 
